@@ -136,3 +136,17 @@ app.listen(PORT, () => {
     `[MurphMCRankeds] API escuchando en http://localhost:${PORT}`,
   );
 });
+
+app.get("/runs/:runId", (req, res) => {
+  const { runId } = req.params;
+
+  const run = runs.get(runId);
+
+  if (!run) {
+    return res.status(404).json({
+      error: "Run no encontrada.",
+    });
+  }
+
+  return res.json(run);
+});
