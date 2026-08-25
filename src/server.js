@@ -11,6 +11,9 @@ const EVENT_ORDER = [
   "player_joined",
   "entered_nether",
   "entered_end",
+  "dragon_killed",
+  "surrender",
+  "player_left",
   "game_over",
 ];
 
@@ -59,7 +62,6 @@ app.post("/runs/:runId/events", (req, res) => {
     });
   }
 
-  // Evitar duplicados
   if (run.events.includes(event)) {
     return res.status(409).json({
       error: "Evento ya registrado.",
@@ -68,14 +70,43 @@ app.post("/runs/:runId/events", (req, res) => {
     });
   }
 
-  // Validar orden
-  const expectedIndex = run.events.length;
-  const receivedIndex = EVENT_ORDER.indexOf(event);
+  // Surrender y player_left terminan la run,
+  // pero no forman parte de la progresión normal.
+  if (
+    event === "surrender" ||
+    event === "player_left"
+  ) {
+    run.events.push(event);
+    run.status = "abandoned";
+
+    return res.status(201).json({
+      success: true,
+      runId,
+      event,
+      status: run.status,
+    });
+  }
+
+  // Validar progresión normal.
+  const expectedEvents = EVENT_ORDER.filter(
+    (item) =>
+      item !== "surrender" &&
+      item !== "player_left",
+  );
+
+  const expectedIndex = run.events.filter(
+    (item) =>
+      item !== "surrender" &&
+      item !== "player_left",
+  ).length;
+
+  const receivedIndex =
+    expectedEvents.indexOf(event);
 
   if (receivedIndex !== expectedIndex) {
     return res.status(409).json({
       error: "Evento fuera de orden.",
-      expected: EVENT_ORDER[expectedIndex],
+      expected: expectedEvents[expectedIndex] ?? null,
       received: event,
     });
   }
