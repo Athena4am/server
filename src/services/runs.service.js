@@ -317,7 +317,14 @@ export async function getRunHistory(authUserId, limit = 20) {
       duration_seconds
     from runs
     where auth_user_id = ${authUserId}
-    order by created_at desc
+      -- Solo partidas que se jugaron de verdad: excluir runs "created"
+      -- creadas pero nunca iniciadas (sin eventos y sin tiempos).
+      and (
+        exists (select 1 from jsonb_array_elements_text(events) ev where ev not in ('player_joined'))
+        or started_at is not null
+        or status in ('finished', 'abandoned')
+      )
+    order by coalesce(finished_at, started_at, created_at) desc
     limit ${limit}
   `;
 
