@@ -5,6 +5,7 @@ import {
   getRunController,
   registerEventController,
   finishRunController,
+  getRunHistoryController,
 } from "../controllers/runs.controller.js";
 
 const router = express.Router();
@@ -12,6 +13,13 @@ const router = express.Router();
 router.post(
   "/",
   createRunController,
+);
+
+// Historial de partidas de un usuario: GET /runs/history?authUserId=...
+// Debe ir ANTES de la ruta "/:runId" para no ser capturada por ella.
+router.get(
+  "/history",
+  getRunHistoryController,
 );
 
 router.get(

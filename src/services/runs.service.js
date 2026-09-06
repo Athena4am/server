@@ -231,28 +231,35 @@ export async function finishRun(runId, { startedAt, finishedAt }) {
     set
       duration_seconds = ${durationSeconds},
       status = 'finished',
-      finished_at = now()
+      finished_at = now(),
+      elo_delta = ${eloDelta}
     where run_id = ${runId}
-  `;
-
-  let newElo = null;
-  if (run.auth_user_id) {
-    const [profile] = await sql`
-      select elo
-      from profiles
-      where auth_user_id = ${run.auth_user_id}
     `;
 
-    if (profile) {
-      newElo = Math.max(0, (profile.elo ?? BASE_ELO) + eloDelta);
-
-      await sql`
-        update profiles
-        set elo = ${newElo}
+    let newElo = null;
+    if (run.auth_user_id) {
+      const [profile] = await sql`
+        select elo
+        from profiles
         where auth_user_id = ${run.auth_user_id}
       `;
+
+      if (profile) {
+        newElo = Math.max(0, (profile.elo ?? BASE_ELO) + eloDelta);
+
+        await sql`
+          update profiles
+          set elo = ${newElo}
+          where auth_user_id = ${run.auth_user_id}
+        `;
+
+        await sql`
+          update runs
+          set new_elo = ${newElo}
+          where run_id = ${runId}
+        `;
+      }
     }
-  }
 
   return {
     runId,
@@ -262,4 +269,31 @@ export async function finishRun(runId, { startedAt, finishedAt }) {
     eloDelta,
     newElo,
   };
-}
+  }
+
+  export async function getRunHistory(authUserId, limit = 20) {
+    const runs = await sql`
+      select
+        run_id,
+        status,
+        started_at,
+        finished_at,
+        elo_delta,
+        new_elo,
+        duration_seconds
+      from runs
+      where auth_user_id = ${authUserId}
+      order by created_at desc
+      limit ${limit}
+    `;
+
+    return runs.map((run) => ({
+      runId: run.run_id,
+      status: run.status,
+      startedAt: run.started_at,
+      finishedAt: run.finished_at,
+      eloDelta: run.elo_delta,
+      newElo: run.new_elo,
+      durationSeconds: run.duration_seconds,
+    }));
+  }

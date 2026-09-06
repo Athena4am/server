@@ -3,6 +3,7 @@ import {
   getRun,
   registerEvent,
   finishRun,
+  getRunHistory,
 } from "../services/runs.service.js";
 
 export async function createRunController(req, res) {
@@ -113,14 +114,38 @@ export async function registerEventController(req, res) {
     }
 
     return res.status(201).json(result);
-  } catch (error) {
-    console.error(
-      "[API] Error registrando evento:",
-      error,
-    );
+      } catch (error) {
+        console.error(
+          "[API] Error registrando evento:",
+          error,
+        );
 
-    return res.status(500).json({
-      error: "No se pudo registrar el evento.",
-    });
-  }
-}
+        return res.status(500).json({
+          error: "No se pudo registrar el evento.",
+        });
+      }
+    }
+
+    export async function getRunHistoryController(req, res) {
+      const { authUserId } = req.query;
+
+      if (!authUserId) {
+        return res.status(400).json({
+          error: "Falta el parámetro authUserId.",
+        });
+      }
+
+      try {
+        const history = await getRunHistory(authUserId);
+        return res.json(history);
+      } catch (error) {
+        console.error(
+          "[API] Error obteniendo historial:",
+          error,
+        );
+
+        return res.status(500).json({
+          error: "No se pudo obtener el historial.",
+        });
+      }
+    }
