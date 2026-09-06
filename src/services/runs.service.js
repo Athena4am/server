@@ -6,7 +6,19 @@ const PAR_TIME_BASE_SECONDS = 1200; // 20 minutos de referencia.
 
 export function calcularParTime(seed) {
   // Par time determinista por seed: varía entre 80% y 120% del base.
-  const normalized = ((seed % 1000) + 1000) % 1000;
+  // La seed puede venir como string largo (hasta 2^64 en Bedrock);
+  // tomamos los últimos dígitos para el cálculo sin perder precisión.
+  let lastDigits = Number(seed);
+  const seedStr = String(seed);
+  if (seedStr.length > 9) {
+    // Quedarnos con los últimos 9 dígitos es suficiente para variar el par.
+    lastDigits = Number(seedStr.slice(-9));
+  }
+  if (!Number.isFinite(lastDigits) || Number.isNaN(lastDigits)) {
+    lastDigits = 0;
+  }
+
+  const normalized = ((lastDigits % 1000) + 1000) % 1000;
   const factor = 0.8 + (normalized / 1000) * 0.4;
   return Math.round(PAR_TIME_BASE_SECONDS * factor);
 }
@@ -14,10 +26,37 @@ export function calcularParTime(seed) {
 // Eventos que dejan la run sin puntuar (no cambian el ELO).
 export const IA_SPAM_EVENTS = ["surrender", "player_left"];
 
+// ─────────────────────────────────────────────
+// SEEDS CURADAS (speedrun-friendly)
+// ─────────────────────────────────────────────
+// El servidor elige de esta lista manual, NO al azar. Cada seed debe
+// haber sido verificada manualmente (generando el mundo) y cumplir:
+//   - portal + lava + aldea + cofre cerca del spawn (overworld)
+//   - bastión y fortaleza accesibles justo al entrar al Nether
+//
+// ⚠️ Estas strings son marcadores que DEBEN reemplazarse por seeds
+// reales verificadas. Las seeds de Minecraft se guardan como string
+// (admite numeros largos que superan el entero de 32 bits).
+const SEEDS_CURADAS = [
+  // "REEMPLAZA_ESTA_SEED",
+];
+
+// Selecciona la próxima seed curada (rotación simple para no repetir
+// seguido y que cada run use una seed verificada).
+let ultimaSeedIdx = -1;
+
+function seleccionarSeed() {
+  if (SEEDS_CURADAS.length === 0) {
+    // Fallback: seed aleatoria si aún no hay seeds curadas cargadas.
+    return String(Math.floor(Math.random() * 2_000_000_000));
+  }
+
+  ultimaSeedIdx = (ultimaSeedIdx + 1) % SEEDS_CURADAS.length;
+  return SEEDS_CURADAS[ultimaSeedIdx];
+}
+
 export async function createRun(authUserId) {
-  const seed = Math.floor(
-    Math.random() * 2_000_000_000,
-  );
+  const seed = seleccionarSeed();
 
   const runId = `run_${crypto.randomBytes(4).toString("hex")}`;
   const parTime = calcularParTime(seed);
